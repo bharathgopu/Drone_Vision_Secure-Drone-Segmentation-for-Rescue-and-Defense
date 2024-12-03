@@ -6,6 +6,7 @@ from torchvision import transforms
 from PIL import Image
 import segmentation_models_pytorch as smp
 import base64
+import os
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -128,7 +129,6 @@ def add_custom_css(background_image_path):
     st.markdown(
         f"""
         <style>
-        /* Background Styling */
         body {{
             background-image: url("data:image/png;base64,{base64_image}");
             background-size: cover;
@@ -136,38 +136,13 @@ def add_custom_css(background_image_path):
             background-position: center;
             background-repeat: no-repeat;
         }}
-
-        /* Overall App Styling */
         .stApp {{
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
             border-radius: 10px;
-            padding: 20px;
         }}
-
-        /* Heading Styling */
-        h1 {{
-            color: white;
-            font-size: 3rem;
-            text-align: center;
-            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
-        }}
-
-        /* Upload Box Styling */
-        .stFileUploader {{
-            border: 2px dashed #ffffff;
+        .css-1d391kg {{
+            background: rgba(0, 0, 0, 0.7); /* Transparent sidebar */
             border-radius: 10px;
-            padding: 20px;
-            background-color: rgba(255, 255, 255, 0.2);
-            transition: background-color 0.3s;
-        }}
-        .stFileUploader:hover {{
-            background-color: rgba(255, 255, 255, 0.4);
-        }}
-
-        /* Image Styling */
-        img {{
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }}
         </style>
         """,
@@ -177,7 +152,26 @@ def add_custom_css(background_image_path):
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
 
-# Apply custom CSS
+# Add sidebar content
+st.sidebar.title("About This App")
+st.sidebar.markdown(
+    """
+    ### What Does This App Do?
+    This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
+    
+    ### Why Is It Useful?
+    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
+    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
+    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
+    
+    ### How to Use
+    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
+    2. **Upload an Image:** Drag and drop or upload a drone image.
+    3. **View Results:** See the segmented output with color-coded classes.
+    """
+)
+
+# Apply custom CSS for background image
 add_custom_css("dronepic.png")
 
 # Define explicit model paths
@@ -187,7 +181,6 @@ model_paths = {
     "FPN (Accuracy: 0.65)": "FPN_best_model.pth",
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
-
 
 # Map display names to internal names
 model_name_mapping = {
