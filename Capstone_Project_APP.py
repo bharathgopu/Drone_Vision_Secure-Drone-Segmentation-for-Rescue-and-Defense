@@ -121,6 +121,14 @@ def map_class_to_color(prediction):
         color_image[mask] = color
 
     return color_image
+    
+@st.cache_resource
+def load_bounding_boxes(file_path):
+    with open(file_path, "rb") as file:
+        data = pickle.load(file)
+    return data
+
+bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
 
 # Apply custom CSS for background image and sidebar
 def add_custom_css(background_image_path):
@@ -232,6 +240,12 @@ if uploaded_image and model_name != "Select a Model":
     color_pred = map_class_to_color(prediction)
 
     st.image(color_pred, caption="Segmented Image", use_column_width=True)
+    image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
+    if image_id in bounding_boxes:
+        num_persons = len(bounding_boxes[image_id])
+        st.write(f"Number of Persons Detected: {num_persons}")
+    else:
+        st.write("No bounding boxes available for this image.")
 
 
 
