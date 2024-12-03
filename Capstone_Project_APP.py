@@ -3,10 +3,11 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torchvision import transforms
-from PIL import Image
+from PIL import Image, ImageDraw
 import segmentation_models_pytorch as smp
-import base64
+import pickle
 import os
+import base64
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -53,11 +54,10 @@ def load_models(model_paths, model_name_mapping):
         internal_name = model_name_mapping[display_name]
         model = initialize_model(internal_name)
 
-        # Attempt to load the model or state_dict
         state_dict = torch.load(path, map_location=torch.device("cpu"))
-        if isinstance(state_dict, nn.Module):  # If the file contains the full model
+        if isinstance(state_dict, nn.Module):
             models[display_name] = state_dict.eval()
-        elif isinstance(state_dict, dict):  # If the file contains a state_dict
+        elif isinstance(state_dict, dict):
             if any(key.startswith("module.") for key in state_dict.keys()):
                 state_dict = {key.replace("module.", ""): value for key, value in state_dict.items()}
             model.load_state_dict(state_dict, strict=False)
@@ -88,31 +88,8 @@ def predict_image(image, model):
 def map_class_to_color(prediction):
     class_to_color = {
         0: [0, 0, 0],         # Unlabeled
-        1: [128, 64, 128],    # Paved Area
-        2: [130, 76, 0],      # Dirt
-        3: [0, 102, 0],       # Grass
-        4: [112, 103, 87],    # Gravel
-        5: [28, 42, 168],     # Water
-        6: [48, 41, 30],      # Rocks
-        7: [0, 50, 89],       # Pool
-        8: [107, 142, 35],    # Vegetation
-        9: [70, 70, 70],      # Roof
-        10: [102, 102, 156],  # Wall
-        11: [254, 228, 12],   # Window
-        12: [254, 148, 12],   # Door
-        13: [190, 153, 153],  # Fence
-        14: [153, 153, 153],  # Fence Pole
         15: [255, 22, 96],    # Person
-        16: [102, 51, 0],     # Dog
-        17: [9, 143, 150],    # Car
-        18: [119, 11, 32],    # Bicycle
-        19: [51, 51, 0],      # Tree
-        20: [190, 250, 190],  # Bald Tree
-        21: [112, 150, 146],  # AR Marker
-        22: [2, 135, 115],    # Obstacle
-        23: [255, 0, 0],      # Conflicting
     }
-
     height, width = prediction.shape
     color_image = np.zeros((height, width, 3), dtype=np.uint8)
 
@@ -122,6 +99,26 @@ def map_class_to_color(prediction):
 
     return color_image
 
+# Draw bounding boxes on the segmented image
+def draw_bounding_boxes(image, bboxes):
+    draw = ImageDraw.Draw(image)
+    for bbox in bboxes:
+        x_min, y_min = map(int, bbox[0])
+        x_max, y_max = map(int, bbox[1])
+        draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
+    return image
+
+# Load bounding boxes from Pickle file
+@st.cache_resource
+def load_bounding_boxes(pickle_file):
+    with open(pickle_file, 'rb') as file:
+        data = pickle.load(file)
+    return data
+
+# Load bounding boxes
+bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
+
+# Apply custom CSS
 def add_custom_css(background_image_path):
     with open(background_image_path, "rb") as image_file:
         base64_image = base64.b64encode(image_file.read()).decode()
@@ -129,7 +126,6 @@ def add_custom_css(background_image_path):
     st.markdown(
         f"""
         <style>
-        /* Background Styling */
         body {{
             background-image: url("data:image/png;base64,{base64_image}");
             background-size: cover;
@@ -138,25 +134,17 @@ def add_custom_css(background_image_path):
             background-repeat: no-repeat;
         }}
         .stApp {{
-            background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
+            background-color: rgba(0, 0, 0, 0.5); /* Transparency */
             border-radius: 10px;
         }}
-        /* Sidebar Styling */
         section[data-testid="stSidebar"] {{
-            background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
+            background: rgba(255, 255, 255, 0.8); /* Light background */
             border-radius: 10px;
-            padding: 15px;
-            overflow-y: auto; /* Enable vertical scrolling */
         }}
         section[data-testid="stSidebar"] h1, 
         section[data-testid="stSidebar"] h2, 
         section[data-testid="stSidebar"] h3 {{
-            color: black !important; /* Sidebar headings in black */
-            font-weight: bold;
-        }}
-        section[data-testid="stSidebar"] p, 
-        section[data-testid="stSidebar"] ul {{
-            color: #333333 !important; /* Sidebar text in dark gray */
+            color: black !important;
         }}
         </style>
         """,
@@ -166,113 +154,22 @@ def add_custom_css(background_image_path):
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
 
-# Add sidebar content
-st.sidebar.title("About This App")
-st.sidebar.markdown(
-    """
-    ### What Does This App Do?
-    This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
-    
-    ### Why Is It Useful?
-    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
-    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
-    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
-    
-    ### How to Use
-    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
-    2. **Upload an Image:** Drag and drop or upload a drone image.
-    3. **View Results:** See the segmented output with color-coded classes.
-    """
-)
-
-# Apply custom CSS for background image and sidebar
-def add_custom_css(background_image_path):
-    with open(background_image_path, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        /* Background Styling */
-        body {{
-            background-image: url("data:image/png;base64,{base64_image}");
-            background-size: cover;
-            background-attachment: fixed;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        .stApp {{
-            background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
-            border-radius: 10px;
-        }}
-        /* Sidebar Styling */
-        section[data-testid="stSidebar"] {{
-            background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
-            border-radius: 10px;
-            padding: 15px;
-        }}
-        section[data-testid="stSidebar"] h1, 
-        section[data-testid="stSidebar"] h2, 
-        section[data-testid="stSidebar"] h3 {{
-            color: black !important; /* Sidebar headings in black */
-            font-weight: bold;
-        }}
-        section[data-testid="stSidebar"] p, 
-        section[data-testid="stSidebar"] ul {{
-            color: #333333 !important; /* Sidebar text in dark gray */
-        }}
-        /* Main Content Headings */
-        h1, h2, h3, label {{
-            color: white !important;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# Streamlit Interface
-st.title("Drone Segmentation for Rescue and Defence")
-
-# Add sidebar content
-st.sidebar.title("About This App")
-st.sidebar.markdown(
-    """
-    ### What Does This App Do?
-    This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
-    
-    ### Why Is It Useful?
-    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
-    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
-    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
-    
-    ### How to Use
-    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
-    2. **Upload an Image:** Drag and drop or upload a drone image.
-    3. **View Results:** See the segmented output with color-coded classes.
-    """
-)
-
-# Apply custom CSS for background image and sidebar
+# Apply custom CSS
 add_custom_css("dronepic.png")
 
-# Define explicit model paths
+# Define model paths and load models
 model_paths = {
     "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
     "FPN (Accuracy: 0.65)": "FPN_best_model.pth",
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
-
-# Map display names to internal names
 model_name_mapping = {
     "U-Net (Accuracy: 0.81)": "U-Net",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
     "FPN (Accuracy: 0.65)": "FPN",
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus",
 }
-
-# Load models
 models = load_models(model_paths, model_name_mapping)
 
 # Model selection
@@ -283,20 +180,22 @@ model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 st.subheader("Upload an Image")
 uploaded_image = st.file_uploader("", type=["jpg", "png"])
 
-# Perform segmentation if an image is uploaded and a model is selected
 if uploaded_image and model_name != "Select a Model":
-    image = Image.open(uploaded_image).convert("RGB")
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+    # Extract image ID from file name
+    image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
 
+    # Perform segmentation
+    image = Image.open(uploaded_image).convert("RGB")
     model = models[model_name]
     prediction = predict_image(image, model)
-
-    # Map prediction to color image
     color_pred = map_class_to_color(prediction)
 
-    st.image(color_pred, caption="Segmented Image", use_column_width=True)
-
-
-
-
-
+    # Overlay bounding boxes
+    if image_id in bounding_boxes:
+        bboxes = bounding_boxes[image_id]
+        segmented_image = draw_bounding_boxes(Image.fromarray(color_pred), bboxes)
+        st.image(segmented_image, caption="Segmented Image with Bounding Boxes", use_column_width=True)
+        st.write(f"Number of Persons Detected: {len(bboxes)}")
+    else:
+        st.image(color_pred, caption="Segmented Image", use_column_width=True)
+        st.write("No bounding boxes available for this image.")
