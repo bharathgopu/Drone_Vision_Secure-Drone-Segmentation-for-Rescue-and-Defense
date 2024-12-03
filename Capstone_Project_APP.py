@@ -122,6 +122,7 @@ def map_class_to_color(prediction):
 
     return color_image
 
+# Apply custom CSS for background image and sidebar
 def add_custom_css(background_image_path):
     with open(background_image_path, "rb") as image_file:
         base64_image = base64.b64encode(image_file.read()).decode()
@@ -146,7 +147,6 @@ def add_custom_css(background_image_path):
             background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
             border-radius: 10px;
             padding: 15px;
-            overflow-y: auto; /* Enable vertical scrolling */
         }}
         section[data-testid="stSidebar"] h1, 
         section[data-testid="stSidebar"] h2, 
@@ -157,6 +157,11 @@ def add_custom_css(background_image_path):
         section[data-testid="stSidebar"] p, 
         section[data-testid="stSidebar"] ul {{
             color: #333333 !important; /* Sidebar text in dark gray */
+        }}
+        /* Main Content Headings */
+        h1, h2, h3, label {{
+            color: white !important;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
         }}
         </style>
         """,
