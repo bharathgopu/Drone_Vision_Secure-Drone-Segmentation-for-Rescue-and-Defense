@@ -7,6 +7,7 @@ from PIL import Image
 import segmentation_models_pytorch as smp
 import base64
 import os
+import pickle
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -122,6 +123,15 @@ def map_class_to_color(prediction):
 
     return color_image
 
+# Load bounding box data
+@st.cache_resource
+def load_bounding_boxes(file_path):
+    with open(file_path, "rb") as file:
+        data = pickle.load(file)
+    return data
+
+bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
+
 # Apply custom CSS for background image and sidebar
 def add_custom_css(background_image_path):
     with open(background_image_path, "rb") as image_file:
@@ -130,38 +140,12 @@ def add_custom_css(background_image_path):
     st.markdown(
         f"""
         <style>
-        /* Background Styling */
         body {{
             background-image: url("data:image/png;base64,{base64_image}");
             background-size: cover;
             background-attachment: fixed;
             background-position: center;
             background-repeat: no-repeat;
-        }}
-        .stApp {{
-            background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
-            border-radius: 10px;
-        }}
-        /* Sidebar Styling */
-        section[data-testid="stSidebar"] {{
-            background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
-            border-radius: 10px;
-            padding: 15px;
-        }}
-        section[data-testid="stSidebar"] h1, 
-        section[data-testid="stSidebar"] h2, 
-        section[data-testid="stSidebar"] h3 {{
-            color: black !important; /* Sidebar headings in black */
-            font-weight: bold;
-        }}
-        section[data-testid="stSidebar"] p, 
-        section[data-testid="stSidebar"] ul {{
-            color: #333333 !important; /* Sidebar text in dark gray */
-        }}
-        /* Main Content Headings */
-        h1, h2, h3, label {{
-            color: white !important;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
         }}
         </style>
         """,
@@ -171,29 +155,10 @@ def add_custom_css(background_image_path):
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
 
-# Add sidebar content
-st.sidebar.title("About This App")
-st.sidebar.markdown(
-    """
-    ### What Does This App Do?
-    This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
-    
-    ### Why Is It Useful?
-    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
-    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
-    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
-    
-    ### How to Use
-    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
-    2. **Upload an Image:** Drag and drop or upload a drone image.
-    3. **View Results:** See the segmented output with color-coded classes.
-    """
-)
-
-# Apply custom CSS for background image and sidebar
+# Apply custom CSS
 add_custom_css("dronepic.png")
 
-# Define explicit model paths
+# Define model paths and load models
 model_paths = {
     "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
@@ -201,7 +166,6 @@ model_paths = {
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
 
-# Map display names to internal names
 model_name_mapping = {
     "U-Net (Accuracy: 0.81)": "U-Net",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
@@ -209,7 +173,6 @@ model_name_mapping = {
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus",
 }
 
-# Load models
 models = load_models(model_paths, model_name_mapping)
 
 # Model selection
@@ -233,7 +196,10 @@ if uploaded_image and model_name != "Select a Model":
 
     st.image(color_pred, caption="Segmented Image", use_column_width=True)
 
-
-
-
-
+    # Get image ID and display person count
+    image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
+    if image_id in bounding_boxes:
+        num_persons = len(bounding_boxes[image_id])
+        st.write(f"Number of Persons Detected: {num_persons}")
+    else:
+        st.write("No bounding boxes available for this image.")
