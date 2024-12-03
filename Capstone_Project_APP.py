@@ -153,20 +153,10 @@ def add_custom_css(background_image_path):
         .css-1d391kg p, .css-1d391kg ul {{
             color: #333333 !important; /* Sidebar text in dark gray */
         }}
-        /* Headings Styling for Main App */
+        /* Main Content Headings */
         h1, h2, h3, label {{
             color: white !important;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
-        }}
-        .stFileUploader {{
-            border: 2px dashed #ffffff;
-            border-radius: 10px;
-            padding: 20px;
-            background-color: rgba(255, 255, 255, 0.2);
-            transition: background-color 0.3s;
-        }}
-        .stFileUploader:hover {{
-            background-color: rgba(255, 255, 255, 0.4);
         }}
         </style>
         """,
@@ -237,4 +227,5 @@ if uploaded_image and model_name != "Select a Model":
     color_pred = map_class_to_color(prediction)
 
     st.image(color_pred, caption="Segmented Image", use_column_width=True)
+
 
