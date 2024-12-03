@@ -142,15 +142,19 @@ def add_custom_css(background_image_path):
             border-radius: 10px;
         }}
         /* Sidebar Styling */
-        .css-1d391kg {{
+        section[data-testid="stSidebar"] {{
             background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
             border-radius: 10px;
+            padding: 15px;
         }}
-        .css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3 {{
+        section[data-testid="stSidebar"] h1, 
+        section[data-testid="stSidebar"] h2, 
+        section[data-testid="stSidebar"] h3 {{
             color: black !important; /* Sidebar headings in black */
             font-weight: bold;
         }}
-        .css-1d391kg p, .css-1d391kg ul {{
+        section[data-testid="stSidebar"] p, 
+        section[data-testid="stSidebar"] ul {{
             color: #333333 !important; /* Sidebar text in dark gray */
         }}
         /* Main Content Headings */
@@ -227,5 +231,6 @@ if uploaded_image and model_name != "Select a Model":
     color_pred = map_class_to_color(prediction)
 
     st.image(color_pred, caption="Segmented Image", use_column_width=True)
+
 
 
