@@ -240,11 +240,11 @@ def load_bounding_boxes(file_path):
 
 bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
 image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
-    if image_id in bounding_boxes:
-        num_persons = len(bounding_boxes[image_id])
-        st.write(f"Number of Persons Detected: {num_persons}")
-    else:
-        st.write("No bounding boxes available for this image.")
+if image_id in bounding_boxes:
+    num_persons = len(bounding_boxes[image_id])
+    st.write(f"Number of Persons Detected: {num_persons}")
+else:
+    st.write("No bounding boxes available for this image.")
 
 
 
