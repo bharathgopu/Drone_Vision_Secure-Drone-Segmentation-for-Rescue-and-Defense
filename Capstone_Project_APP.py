@@ -129,6 +129,7 @@ def add_custom_css(background_image_path):
     st.markdown(
         f"""
         <style>
+        /* Background Styling */
         body {{
             background-image: url("data:image/png;base64,{base64_image}");
             background-size: cover;
@@ -140,9 +141,25 @@ def add_custom_css(background_image_path):
             background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
             border-radius: 10px;
         }}
+        /* Sidebar Styling */
         .css-1d391kg {{
             background: rgba(0, 0, 0, 0.7); /* Transparent sidebar */
             border-radius: 10px;
+        }}
+        /* Headings Styling */
+        h1, h2, h3, label {{
+            color: white !important;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
+        }}
+        .stFileUploader {{
+            border: 2px dashed #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: background-color 0.3s;
+        }}
+        .stFileUploader:hover {{
+            background-color: rgba(255, 255, 255, 0.4);
         }}
         </style>
         """,
@@ -171,7 +188,7 @@ st.sidebar.markdown(
     """
 )
 
-# Apply custom CSS for background image
+# Apply custom CSS for background image and bright text
 add_custom_css("dronepic.png")
 
 # Define explicit model paths
@@ -194,10 +211,12 @@ model_name_mapping = {
 models = load_models(model_paths, model_name_mapping)
 
 # Model selection
-model_name = st.selectbox("Select a Model", ["Select a Model"] + list(models.keys()))
+st.subheader("Select a Model")
+model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 
 # Upload image
-uploaded_image = st.file_uploader("Upload an Image", type=["jpg", "png"])
+st.subheader("Upload an Image")
+uploaded_image = st.file_uploader("", type=["jpg", "png"])
 
 # Perform segmentation if an image is uploaded and a model is selected
 if uploaded_image and model_name != "Select a Model":
@@ -211,3 +230,4 @@ if uploaded_image and model_name != "Select a Model":
     color_pred = map_class_to_color(prediction)
 
     st.image(color_pred, caption="Segmented Image", use_column_width=True)
+
