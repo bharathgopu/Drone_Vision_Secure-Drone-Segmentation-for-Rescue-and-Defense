@@ -178,15 +178,16 @@ def add_custom_css(background_image_path):
 st.title("Semantic Segmentation with Streamlit")
 
 # Apply custom CSS
-add_custom_css("C:/Users/bhara/Downloads/dronepic.png")
+add_custom_css("dronepic.png")
 
 # Define explicit model paths
 model_paths = {
-    "U-Net (Accuracy: 0.81)": "C:/Users/bhara/OneDrive/Documents/model_files/Unet-Mobilenet.pt",
-    "SimpleFCN (Accuracy: 0.48)": "C:/Users/bhara/Downloads/SimpleFCN_best_model.pth",
-    "FPN (Accuracy: 0.65)": "C:/Users/bhara/Downloads/FPN_best_model.pth",
-    "DeepLabV3Plus (Accuracy: 0.69)": "C:/Users/bhara/Downloads/DeepLabV3Plus_best_model.pth",
+    "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
+    "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
+    "FPN (Accuracy: 0.65)": "FPN_best_model.pth",
+    "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
+
 
 # Map display names to internal names
 model_name_mapping = {
