@@ -143,10 +143,17 @@ def add_custom_css(background_image_path):
         }}
         /* Sidebar Styling */
         .css-1d391kg {{
-            background: rgba(0, 0, 0, 0.7); /* Transparent sidebar */
+            background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
             border-radius: 10px;
         }}
-        /* Headings Styling */
+        .css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3 {{
+            color: black !important; /* Sidebar headings in black */
+            font-weight: bold;
+        }}
+        .css-1d391kg p, .css-1d391kg ul {{
+            color: #333333 !important; /* Sidebar text in dark gray */
+        }}
+        /* Headings Styling for Main App */
         h1, h2, h3, label {{
             color: white !important;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
@@ -188,7 +195,7 @@ st.sidebar.markdown(
     """
 )
 
-# Apply custom CSS for background image and bright text
+# Apply custom CSS for background image and sidebar
 add_custom_css("dronepic.png")
 
 # Define explicit model paths
