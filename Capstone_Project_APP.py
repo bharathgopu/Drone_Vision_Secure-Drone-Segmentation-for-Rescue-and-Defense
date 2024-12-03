@@ -243,10 +243,24 @@ if uploaded_image and model_name != "Select a Model":
     image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
     if image_id in bounding_boxes:
         num_persons = len(bounding_boxes[image_id])
-        st.write(f"Number of Persons Detected: {num_persons}")
+        st.markdown(
+            f"""
+            <p style="color: white; font-weight: bold; font-size: 16px;">
+                Number of Persons Detected: {num_persons}
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
-        st.write("No bounding boxes available for this image.")
-
+        st.markdown(
+        f"""
+        <p style="color: white; font-weight: bold; font-size: 16px;">
+            No bounding boxes available for this image.
+        </p>
+        """,
+        unsafe_allow_html=True,
+        ) 
+    
 
 
 
