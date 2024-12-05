@@ -7,6 +7,7 @@ from PIL import Image
 import segmentation_models_pytorch as smp
 import base64
 import os
+import pickle
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
