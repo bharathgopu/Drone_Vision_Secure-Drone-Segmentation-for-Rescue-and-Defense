@@ -261,8 +261,38 @@ if uploaded_image and model_name != "Select a Model":
         """,
         unsafe_allow_html=True,
         ) 
-    
+# Keep all your existing code unchanged above
 
+# Upload folder for batch processing
+st.subheader("Batch Processing")
+uploaded_folder = st.file_uploader("Upload a folder of images (as a zip file)", type=["zip"])
 
+if uploaded_folder:
+    temp_dir = Path("temp_images")
+    temp_dir.mkdir(exist_ok=True)
 
+    with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
+        zip_ref.extractall(temp_dir)
 
+    st.write(f"Uploaded folder contains {len(list(temp_dir.glob('*.jpg')))} images.")
+
+    if st.button("Process Images"):
+        batch_results = []
+
+        def process_image_batch(image_path):
+            image = Image.open(image_path).convert("RGB")
+            prediction = predict_image(image, models[model_name])
+            num_persons = len(bounding_boxes.get(image_path.stem, []))
+            return image_path.name, num_persons
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            image_paths = list(temp_dir.glob("*.jpg"))
+            batch_results = list(executor.map(process_image_batch, image_paths))
+
+        df = pd.DataFrame(batch_results, columns=["Filename", "Number of Persons Detected"])
+        excel_path = "batch_results.xlsx"
+        df.to_excel(excel_path, index=False)
+
+        st.success("Batch processing completed!")
+        st.markdown(f"[Download Results Excel File](./{excel_path})", unsafe_allow_html=True)
+        shutil.rmtree(temp_dir)
