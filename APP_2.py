@@ -8,6 +8,9 @@ import segmentation_models_pytorch as smp
 import base64
 import os
 import pickle
+import pandas as pd
+from multiprocessing import Pool, cpu_count
+from pathlib import Path
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -54,11 +57,10 @@ def load_models(model_paths, model_name_mapping):
         internal_name = model_name_mapping[display_name]
         model = initialize_model(internal_name)
 
-        # Attempt to load the model or state_dict
         state_dict = torch.load(path, map_location=torch.device("cpu"))
-        if isinstance(state_dict, nn.Module):  # If the file contains the full model
+        if isinstance(state_dict, nn.Module):
             models[display_name] = state_dict.eval()
-        elif isinstance(state_dict, dict):  # If the file contains a state_dict
+        elif isinstance(state_dict, dict):
             if any(key.startswith("module.") for key in state_dict.keys()):
                 state_dict = {key.replace("module.", ""): value for key, value in state_dict.items()}
             model.load_state_dict(state_dict, strict=False)
@@ -85,6 +87,52 @@ def predict_image(image, model):
     output = torch.argmax(output.squeeze(), dim=0).cpu().numpy()
     return output
 
+# Map predictions to colors for visualization
+def map_class_to_color(prediction):
+    class_to_color = {
+        0: [0, 0, 0],         # Unlabeled
+        1: [128, 64, 128],    # Paved Area
+        2: [130, 76, 0],      # Dirt
+        3: [0, 102, 0],       # Grass
+        4: [112, 103, 87],    # Gravel
+        5: [28, 42, 168],     # Water
+        6: [48, 41, 30],      # Rocks
+        7: [0, 50, 89],       # Pool
+        8: [107, 142, 35],    # Vegetation
+        9: [70, 70, 70],      # Roof
+        10: [102, 102, 156],  # Wall
+        11: [254, 228, 12],   # Window
+        12: [254, 148, 12],   # Door
+        13: [190, 153, 153],  # Fence
+        14: [153, 153, 153],  # Fence Pole
+        15: [255, 22, 96],    # Person
+        16: [102, 51, 0],     # Dog
+        17: [9, 143, 150],    # Car
+        18: [119, 11, 32],    # Bicycle
+        19: [51, 51, 0],      # Tree
+        20: [190, 250, 190],  # Bald Tree
+        21: [112, 150, 146],  # AR Marker
+        22: [2, 135, 115],    # Obstacle
+        23: [255, 0, 0],      # Conflicting
+    }
+
+    height, width = prediction.shape
+    color_image = np.zeros((height, width, 3), dtype=np.uint8)
+
+    for class_id, color in class_to_color.items():
+        mask = prediction == class_id
+        color_image[mask] = color
+
+    return color_image
+    
+@st.cache_resource
+def load_bounding_boxes(file_path):
+    with open(file_path, "rb") as file:
+        data = pickle.load(file)
+    return data
+
+bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
+
 # Apply custom CSS for background image and sidebar
 def add_custom_css(background_image_path):
     with open(background_image_path, "rb") as image_file:
@@ -93,6 +141,7 @@ def add_custom_css(background_image_path):
     st.markdown(
         f"""
         <style>
+        /* Background Styling */
         body {{
             background-image: url("data:image/png;base64,{base64_image}");
             background-size: cover;
@@ -104,16 +153,11 @@ def add_custom_css(background_image_path):
             background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
             border-radius: 10px;
         }}
+        /* Sidebar Styling */
         section[data-testid="stSidebar"] {{
             background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
             border-radius: 10px;
             padding: 15px;
-        }}
-        section[data-testid="stSidebar"] h1, 
-        section[data-testid="stSidebar"] h2, 
-        section[data-testid="stSidebar"] h3 {{
-            color: black !important; /* Sidebar headings in black */
-            font-weight: bold;
         }}
         </style>
         """,
@@ -123,19 +167,19 @@ def add_custom_css(background_image_path):
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
 
-# Apply custom CSS
+# Add sidebar content
+st.sidebar.title("About This App")
+st.sidebar.markdown(
+    """
+    ### What Does This App Do?
+    This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
+    """
+)
+
+# Apply custom CSS for background image and sidebar
 add_custom_css("dronepic.png")
 
-# Load bounding box data
-@st.cache_resource
-def load_bounding_boxes(file_path):
-    with open(file_path, "rb") as file:
-        data = pickle.load(file)
-    return data
-
-bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
-
-# Define model paths and load models
+# Define explicit model paths
 model_paths = {
     "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
@@ -143,6 +187,7 @@ model_paths = {
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
 
+# Map display names to internal names
 model_name_mapping = {
     "U-Net (Accuracy: 0.81)": "U-Net",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
@@ -150,6 +195,7 @@ model_name_mapping = {
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus",
 }
 
+# Load models
 models = load_models(model_paths, model_name_mapping)
 
 # Model selection
@@ -160,7 +206,6 @@ model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 st.subheader("Upload an Image")
 uploaded_image = st.file_uploader("", type=["jpg", "png"])
 
-# Perform segmentation and count persons
 if uploaded_image and model_name != "Select a Model":
     image = Image.open(uploaded_image).convert("RGB")
     st.image(image, caption="Uploaded Image", use_column_width=True)
@@ -168,10 +213,57 @@ if uploaded_image and model_name != "Select a Model":
     model = models[model_name]
     prediction = predict_image(image, model)
 
-    # Extract image ID from file name (e.g., 000.jpg to 598.jpg)
+    # Map prediction to color image
+    color_pred = map_class_to_color(prediction)
+
+    st.image(color_pred, caption="Segmented Image", use_column_width=True)
     image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
     if image_id in bounding_boxes:
         num_persons = len(bounding_boxes[image_id])
         st.write(f"Number of Persons Detected: {num_persons}")
     else:
-        st.write("No bounding boxes available for this image.")
+        st.write("Bounding box data not available for this image.")
+
+    # Download segmented image
+    st.download_button(
+        label="Download Segmented Image",
+        data=color_pred.tobytes(),
+        file_name="segmented_image.png",
+        mime="image/png",
+    )
+
+# Batch processing functionality
+st.subheader("Batch Process Images in a Folder")
+folder_path = st.text_input("Enter the folder path containing images:")
+
+if folder_path and st.button("Process Folder"):
+    folder = Path(folder_path)
+    if folder.exists() and folder.is_dir():
+        image_files = list(folder.glob("*.jpg")) + list(folder.glob("*.png"))
+
+        if len(image_files) > 0:
+            st.write(f"Processing {len(image_files)} images...")
+
+            # Multiprocessing for efficiency
+            def process_image(file_path):
+                try:
+                    image = Image.open(file_path).convert("RGB")
+                    image_id = os.path.splitext(file_path.name)[0]
+                    prediction = predict_image(image, model)
+                    num_persons = len(bounding_boxes.get(image_id, []))
+                    return {"File Name": file_path.name, "Number of Persons Detected": num_persons}
+                except Exception as e:
+                    return {"File Name": file_path.name, "Number of Persons Detected": f"Error: {e}"}
+
+            with Pool(cpu_count()) as pool:
+                results = pool.map(process_image, image_files)
+
+            results_df = pd.DataFrame(results)
+            output_path = folder / "batch_results.xlsx"
+            results_df.to_excel(output_path, index=False)
+            st.write(f"Batch processing complete! Results saved to {output_path}")
+            st.dataframe(results_df)
+        else:
+            st.write("No images found in the specified folder.")
+    else:
+        st.write("Invalid folder path. Please provide a valid directory.")
