@@ -1,20 +1,15 @@
 import streamlit as st
 import torch
-import torch.nn as nn
-import numpy as np
-from torchvision import transforms
-from PIL import Image
-import segmentation_models_pytorch as smp
-import base64
-import os
-import pickle
 from pathlib import Path
 import zipfile
 import shutil
 import concurrent.futures
 import pandas as pd
+from PIL import Image
+import segmentation_models_pytorch as smp
+import os
 
-# Define your model architectures
+# Define model architectures and initialization functions
 class SimpleFCN(nn.Module):
     def __init__(self, num_classes):
         super(SimpleFCN, self).__init__()
@@ -127,7 +122,7 @@ def map_class_to_color(prediction):
         color_image[mask] = color
 
     return color_image
-    
+
 @st.cache_resource
 def load_bounding_boxes(file_path):
     with open(file_path, "rb") as file:
@@ -136,51 +131,14 @@ def load_bounding_boxes(file_path):
 
 bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
 
-# Apply custom CSS for background image and sidebar
-def add_custom_css(background_image_path):
-    with open(background_image_path, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        /* Background Styling */
-        body {{
-            background-image: url("data:image/png;base64,{base64_image}");
-            background-size: cover;
-            background-attachment: fixed;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        .stApp {{
-            background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
-            border-radius: 10px;
-        }}
-        /* Sidebar Styling */
-        section[data-testid="stSidebar"] {{
-            background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
-            border-radius: 10px;
-            padding: 15px;
-        }}
-        section[data-testid="stSidebar"] h1, 
-        section[data-testid="stSidebar"] h2, 
-        section[data-testid="stSidebar"] h3 {{
-            color: black !important; /* Sidebar headings in black */
-            font-weight: bold;
-        }}
-        section[data-testid="stSidebar"] p, 
-        section[data-testid="stSidebar"] ul {{
-            color: #333333 !important; /* Sidebar text in dark gray */
-        }}
-        /* Main Content Headings */
-        h1, h2, h3, label {{
-            color: white !important;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+# Batch processing code
+def process_batch_images(image_paths, model_name, batch_results):
+    model = models[model_name]
+    for image_path in image_paths:
+        image = Image.open(image_path).convert("RGB")
+        prediction = predict_image(image, model)
+        num_persons = len(bounding_boxes.get(image_path.stem, []))
+        batch_results.append([image_path.name, num_persons])
 
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
@@ -191,81 +149,13 @@ st.sidebar.markdown(
     """
     ### What Does This App Do?
     This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
-    
-    ### Why Is It Useful?
-    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
-    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
-    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
-    
-    ### How to Use
-    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
-    2. **Upload an Image:** Drag and drop or upload a drone image.
-    3. **View Results:** See the segmented output with color-coded classes.
     """
 )
-
-# Apply custom CSS for background image and sidebar
-add_custom_css("dronepic.png")
-
-# Define explicit model paths
-model_paths = {
-    "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
-    "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
-    "FPN (Accuracy: 0.65)": "FPN_best_model.pth",
-    "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
-}
-
-# Map display names to internal names
-model_name_mapping = {
-    "U-Net (Accuracy: 0.81)": "U-Net",
-    "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
-    "FPN (Accuracy: 0.65)": "FPN",
-    "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus",
-}
-
-# Load models
-models = load_models(model_paths, model_name_mapping)
 
 # Model selection
 st.subheader("Select a Model")
 model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 
-# Upload image
-st.subheader("Upload an Image")
-uploaded_image = st.file_uploader("", type=["jpg", "png"])
-
-# Perform segmentation if an image is uploaded and a model is selected
-if uploaded_image and model_name != "Select a Model":
-    image = Image.open(uploaded_image).convert("RGB")
-    st.image(image, caption="Uploaded Image", use_column_width=True)
-
-    model = models[model_name]
-    prediction = predict_image(image, model)
-
-    # Map prediction to color image
-    color_pred = map_class_to_color(prediction)
-
-    st.image(color_pred, caption="Segmented Image", use_column_width=True)
-    image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
-    if image_id in bounding_boxes:
-        num_persons = len(bounding_boxes[image_id])
-        st.markdown(
-            f"""
-            <p style="color: white; font-weight: bold; font-size: 16px;">
-                Number of Persons Detected: {num_persons}
-            </p>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-        f"""
-        <p style="color: white; font-weight: bold; font-size: 16px;">
-            No bounding boxes available for this image.
-        </p>
-        """,
-        unsafe_allow_html=True,
-        ) 
 # Upload folder for batch processing
 st.subheader("Batch Processing")
 uploaded_folder = st.file_uploader("Upload a folder of images (as a zip file)", type=["zip"])
