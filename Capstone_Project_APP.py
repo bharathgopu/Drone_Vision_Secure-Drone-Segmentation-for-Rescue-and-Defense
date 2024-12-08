@@ -192,10 +192,22 @@ if uploaded_folder:
     temp_dir = Path("temp_images")
     temp_dir.mkdir(exist_ok=True)
 
+    # Open the zip file and extract its contents
     with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
         zip_ref.extractall(temp_dir)
 
-    st.write(f"Uploaded folder contains {len(list(temp_dir.glob('*.jpg')))} images.")
+    # Print out the list of extracted files for debugging
+    extracted_files = list(temp_dir.glob('*'))  # This will list all extracted files
+    st.write(f"Files extracted: {extracted_files}")
+
+    # Count the number of .jpg files
+    jpg_files = list(temp_dir.glob('*.jpg'))
+    st.write(f"Uploaded folder contains {len(jpg_files)} .jpg images.")
+
+    # If you want to check for other types of image extensions as well, you can try this:
+    other_images = list(temp_dir.glob('*.[pj]*[np]*[g]*'))  # Matches .jpg, .png, .jpeg
+    st.write(f"Uploaded folder contains {len(other_images)} image files (including .jpg, .png, .jpeg).")
+
 
     if st.button("Process Images"):
         batch_results = []
