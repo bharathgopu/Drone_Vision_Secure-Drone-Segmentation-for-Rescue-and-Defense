@@ -295,7 +295,14 @@ if st.button("Process Images"):
 
         # List all image files in the extracted folder (including subdirectories)
         image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
-        st.write(f"Uploaded folder contains {len(image_files)} image files.")
+        st.markdown(
+            f"""
+            <p style="color: white; font-weight: bold; font-size: 16px;">
+                Uploaded folder contains {len(image_files)} image files.
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
 
         # Process each image in the folder
         if len(image_files) > 0:
