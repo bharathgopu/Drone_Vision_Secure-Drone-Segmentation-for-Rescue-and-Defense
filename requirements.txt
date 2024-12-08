@@ -4,6 +4,8 @@ torchaudio
 streamlit
 segmentation-models-pytorch
 opencv-python
+opencv-python-headless
+
 
 
 
