@@ -191,7 +191,12 @@ if st.button("Process Images"):
         temp_dir = Path("temp_images")
         if temp_dir.exists():
             for file in temp_dir.iterdir():
-                file.unlink()
+                # If it's a file, remove it
+                if file.is_file():
+                    file.unlink()
+                # If it's a directory, remove the directory
+                elif file.is_dir():
+                    os.rmdir(file)
         else:
             temp_dir.mkdir(exist_ok=True)
     
@@ -202,6 +207,7 @@ if st.button("Process Images"):
         # List all image files in the extracted folder (including subdirectories)
         image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
         st.write(f"Uploaded folder contains {len(image_files)} image files.")
+
     
         # Process each image in the folder
         if len(image_files) > 0:
