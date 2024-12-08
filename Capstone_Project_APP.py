@@ -271,7 +271,7 @@ st.subheader("Batch Processing")
 uploaded_folder = st.file_uploader("Upload a folder of images (as a zip file)", type=["zip"])
 
 if uploaded_folder:
-    temp_dir = Path("temp_images")  # This will work after importing Path
+    temp_dir = Path("temp_images")
     temp_dir.mkdir(exist_ok=True)
 
     with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
@@ -282,16 +282,12 @@ if uploaded_folder:
     if st.button("Process Images"):
         batch_results = []
 
-        def process_image_batch(image_path):
-            image = Image.open(image_path).convert("RGB")
-            prediction = predict_image(image, models[model_name])
-            num_persons = len(bounding_boxes.get(image_path.stem, []))
-            return image_path.name, num_persons
-
+        # Batch processing with concurrency
+        image_paths = list(temp_dir.glob("*.jpg"))
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            image_paths = list(temp_dir.glob("*.jpg"))
-            batch_results = list(executor.map(process_image_batch, image_paths))
+            executor.map(lambda p: process_batch_images([p], model_name, batch_results), image_paths)
 
+        # Store the results in a DataFrame
         df = pd.DataFrame(batch_results, columns=["Filename", "Number of Persons Detected"])
         excel_path = "batch_results.xlsx"
         df.to_excel(excel_path, index=False)
