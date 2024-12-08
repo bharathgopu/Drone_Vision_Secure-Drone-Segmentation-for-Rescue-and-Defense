@@ -12,6 +12,7 @@ import base64
 import pickle
 import pandas as pd
 import cv2
+import shutil
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -194,9 +195,9 @@ if st.button("Process Images"):
                 # If it's a file, remove it
                 if file.is_file():
                     file.unlink()
-                # If it's a directory, remove the directory
+                # If it's a directory, remove the directory and its contents
                 elif file.is_dir():
-                    os.rmdir(file)
+                    shutil.rmtree(file)  # Removes directory and all its contents
         else:
             temp_dir.mkdir(exist_ok=True)
     
@@ -207,6 +208,7 @@ if st.button("Process Images"):
         # List all image files in the extracted folder (including subdirectories)
         image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
         st.write(f"Uploaded folder contains {len(image_files)} image files.")
+
 
     
         # Process each image in the folder
