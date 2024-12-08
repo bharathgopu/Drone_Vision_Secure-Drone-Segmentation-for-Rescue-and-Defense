@@ -3,6 +3,7 @@ torchvision
 torchaudio
 streamlit
 segmentation-models-pytorch
+opencv-python
 
 
 
