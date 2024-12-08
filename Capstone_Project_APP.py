@@ -11,7 +11,7 @@ from pathlib import Path
 import base64
 import pickle
 import pandas as pd
-import cv2
+
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
