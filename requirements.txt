@@ -3,7 +3,4 @@ torchvision
 torchaudio
 streamlit
 segmentation-models-pytorch
-pillow 
-pandas
-openpyxl
-streamlit_folder_picker
+
