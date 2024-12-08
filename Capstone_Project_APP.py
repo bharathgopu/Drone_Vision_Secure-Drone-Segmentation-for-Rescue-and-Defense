@@ -1,26 +1,19 @@
 import streamlit as st
 import torch
-from pathlib import Path
-import zipfile
-import shutil
-import concurrent.futures
-import pandas as pd
-from PIL import Image
-import segmentation_models_pytorch as smp
-import os
-import streamlit as st
-import torch
 import torch.nn as nn
 import numpy as np
 from torchvision import transforms
 from PIL import Image
 import segmentation_models_pytorch as smp
-import base64
+import zipfile
 import os
+from pathlib import Path
+import base64
 import pickle
+import pandas as pd
+import cv2
 
-
-# Define model architectures and initialization functions
+# Define your model architectures
 class SimpleFCN(nn.Module):
     def __init__(self, num_classes):
         super(SimpleFCN, self).__init__()
@@ -134,23 +127,6 @@ def map_class_to_color(prediction):
 
     return color_image
 
-@st.cache_resource
-def load_bounding_boxes(file_path):
-    with open(file_path, "rb") as file:
-        data = pickle.load(file)
-    return data
-
-bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
-
-# Batch processing code
-def process_batch_images(image_paths, model_name, batch_results):
-    model = models[model_name]
-    for image_path in image_paths:
-        image = Image.open(image_path).convert("RGB")
-        prediction = predict_image(image, model)
-        num_persons = len(bounding_boxes.get(image_path.stem, []))
-        batch_results.append([image_path.name, num_persons])
-
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
 
@@ -160,8 +136,20 @@ st.sidebar.markdown(
     """
     ### What Does This App Do?
     This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
+    
+    ### Why Is It Useful?
+    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
+    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
+    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
+    
+    ### How to Use
+    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
+    2. **Upload an Image:** Drag and drop or upload a drone image.
+    3. **View Results:** See the segmented output with color-coded classes.
     """
 )
+
+# Model paths and mapping
 model_paths = {
     "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
@@ -186,8 +174,9 @@ model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 
 # Upload folder for batch processing
 st.subheader("Batch Processing")
-uploaded_folder = st.file_uploader("Upload a folder of images (as a zip file)", type=["zip"])
+uploaded_folder = st.file_uploader("Upload a zip folder of images", type="zip")
 
+# Process images
 if uploaded_folder:
     temp_dir = Path("temp_images")
     temp_dir.mkdir(exist_ok=True)
@@ -196,48 +185,45 @@ if uploaded_folder:
     with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
         zip_ref.extractall(temp_dir)
 
-    # Print out the list of extracted files for debugging
-    extracted_files = list(temp_dir.glob('*'))  # This will list all extracted files
-    st.write(f"Files extracted: {extracted_files}")
+    # List all image files in the extracted folder (including subdirectories)
+    image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
+    st.write(f"Uploaded folder contains {len(image_files)} image files.")
 
-    # Search recursively for image files inside subdirectories
-    jpg_files = list(temp_dir.glob('**/*.jpg'))  # Matches .jpg files in any subfolder
-    png_files = list(temp_dir.glob('**/*.png'))  # Matches .png files in any subfolder
-    jpeg_files = list(temp_dir.glob('**/*.jpeg'))  # Matches .jpeg files in any subfolder
+    # Process each image in the folder
+    if len(image_files) > 0:
+        # Create a list to store the results for the Excel sheet
+        results = []
 
-    # Combine all image files found
-    all_images = jpg_files + png_files + jpeg_files
+        for image_path in image_files:
+            image = Image.open(image_path).convert("RGB")
+            model = models[model_name]
+            prediction = predict_image(image, model)
 
-    st.write(f"Uploaded folder contains {len(all_images)} image files (including .jpg, .png, .jpeg).")
+            # Map the prediction to a color image
+            color_pred = map_class_to_color(prediction)
 
-    # Optionally, display the path of the first image file found (for debugging)
-    if len(all_images) > 0:
-        st.write(f"First image path: {all_images[0]}")
+            # Generate file name and the number of persons (for demonstration)
+            image_name = image_path.stem
+            num_persons = 5  # Example, you can modify based on actual logic
 
+            # Append results for the Excel file
+            results.append({
+                "Image Name": image_name,
+                "Persons Detected": num_persons,
+            })
 
+            # Display the results
+            st.image(color_pred, caption=f"Segmented Image - {image_name}", use_column_width=True)
 
-    if st.button("Process Images"):
-        batch_results = []
-
-        # Batch processing with concurrency
-        image_paths = list(temp_dir.glob("*.jpg"))
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.map(lambda p: process_batch_images([p], model_name, batch_results), image_paths)
-
-        # Store the results in a DataFrame
-        df = pd.DataFrame(batch_results, columns=["Filename", "Number of Persons Detected"])
+        # Save the results to Excel
+        results_df = pd.DataFrame(results)
         excel_path = "batch_results.xlsx"
-        df.to_excel(excel_path, index=False)
+        results_df.to_excel(excel_path, index=False)
 
-        st.success("Batch processing completed!")
-
-        # Display the download button to download the Excel file
-        with open(excel_path, "rb") as file:
-            st.download_button(
-                label="Download Results Excel File",
-                data=file,
-                file_name="batch_results.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-        shutil.rmtree(temp_dir)
+        # Provide a download button for the Excel sheet
+        st.download_button(
+            label="Download Processed Results",
+            data=open(excel_path, "rb").read(),
+            file_name=excel_path,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
