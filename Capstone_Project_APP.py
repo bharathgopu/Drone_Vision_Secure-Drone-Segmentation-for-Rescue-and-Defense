@@ -13,7 +13,6 @@ import pickle
 import pandas as pd
 import cv2
 
-
 # Define your model architectures
 class SimpleFCN(nn.Module):
     def __init__(self, num_classes):
@@ -75,7 +74,7 @@ def load_models(model_paths, model_name_mapping):
 
 # Define image preprocessing
 def transform_image(image):
-    transform = transforms.Compose([
+    transform = transforms.Compose([ 
         transforms.Resize((512, 512)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -188,8 +187,13 @@ uploaded_folder = st.file_uploader("Upload a zip folder of images", type="zip")
 
 if st.button("Process Images"):
     if uploaded_folder:
+        # Clear the previous images in temp_images directory
         temp_dir = Path("temp_images")
-        temp_dir.mkdir(exist_ok=True)
+        if temp_dir.exists():
+            for file in temp_dir.iterdir():
+                file.unlink()
+        else:
+            temp_dir.mkdir(exist_ok=True)
     
         # Open the zip file and extract its contents
         with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
