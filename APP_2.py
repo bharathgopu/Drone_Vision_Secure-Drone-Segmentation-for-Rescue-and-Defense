@@ -10,8 +10,10 @@ import os
 import pickle
 from pathlib import Path
 import pandas as pd
-from multiprocessing import Pool, cpu_count
-import streamlit_folder_picker
+import zipfile
+import concurrent.futures
+import shutil
+
 # Define your model architectures
 class SimpleFCN(nn.Module):
     def __init__(self, num_classes):
@@ -57,18 +59,14 @@ def load_models(model_paths, model_name_mapping):
         internal_name = model_name_mapping[display_name]
         model = initialize_model(internal_name)
 
-        # Attempt to load the model or state_dict
         state_dict = torch.load(path, map_location=torch.device("cpu"))
-        if isinstance(state_dict, nn.Module):  # If the file contains the full model
-            models[display_name] = state_dict.eval()
-        elif isinstance(state_dict, dict):  # If the file contains a state_dict
+        if isinstance(state_dict, dict):  
             if any(key.startswith("module.") for key in state_dict.keys()):
                 state_dict = {key.replace("module.", ""): value for key, value in state_dict.items()}
             model.load_state_dict(state_dict, strict=False)
             models[display_name] = model.eval()
         else:
-            raise TypeError(f"Expected state_dict or model, got {type(state_dict)} for {path}")
-
+            raise TypeError(f"Unexpected object type in {path}")
     return models
 
 # Define image preprocessing
@@ -134,66 +132,55 @@ def load_bounding_boxes(file_path):
 
 bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
 
-# Apply custom CSS for background image and sidebar
-def add_custom_css(background_image_path):
-    with open(background_image_path, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        body {{
-            background-image: url("data:image/png;base64,{base64_image}");
-            background-size: cover;
-            background-attachment: fixed;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
-add_custom_css("dronepic.png")
 
-# Explicit model paths
+# Define explicit model paths
 model_paths = {
     "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
     "FPN (Accuracy: 0.65)": "FPN_best_model.pth",
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
+
 model_name_mapping = {
     "U-Net (Accuracy: 0.81)": "U-Net",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
     "FPN (Accuracy: 0.65)": "FPN",
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus",
 }
+
 models = load_models(model_paths, model_name_mapping)
 
-# Model selection
-st.subheader("Select a Model")
-model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
+# Upload folder for batch processing
+st.subheader("Batch Processing")
+uploaded_folder = st.file_uploader("Upload a folder of images (as a zip file)", type=["zip"])
 
-# Upload single image or multiple images
-st.subheader("Upload Images")
-uploaded_files = st.file_uploader("Upload Images", type=["jpg", "png"], accept_multiple_files=True)
+if uploaded_folder:
+    temp_dir = Path("temp_images")
+    temp_dir.mkdir(exist_ok=True)
 
-if uploaded_files and model_name != "Select a Model":
-    model = models[model_name]
-    results = []
+    with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
+        zip_ref.extractall(temp_dir)
 
-    for uploaded_file in uploaded_files:
-        image = Image.open(uploaded_file).convert("RGB")
-        image_id = os.path.splitext(uploaded_file.name)[0]
-        prediction = predict_image(image, model)
-        num_persons = len(bounding_boxes.get(image_id, []))
-        results.append({"File Name": uploaded_file.name, "Number of Persons Detected": num_persons})
+    st.write(f"Uploaded folder contains {len(list(temp_dir.glob('*.jpg')))} images.")
 
-    results_df = pd.DataFrame(results)
-    output_path = Path("batch_results.xlsx")
-    results_df.to_excel(output_path, index=False)
-    st.write(f"Batch processing complete! Results saved to {output_path}")
-    st.dataframe(results_df)
+    if st.button("Process Images"):
+        batch_results = []
+
+        def process_image_batch(image_path):
+            image = Image.open(image_path).convert("RGB")
+            prediction = predict_image(image, models["U-Net (Accuracy: 0.81)"])
+            num_persons = len(bounding_boxes.get(image_path.stem, []))
+            return image_path.name, num_persons
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            image_paths = list(temp_dir.glob("*.jpg"))
+            batch_results = list(executor.map(process_image_batch, image_paths))
+
+        df = pd.DataFrame(batch_results, columns=["Filename", "Number of Persons Detected"])
+        df.to_excel("batch_results.xlsx", index=False)
+
+        st.success("Batch processing completed! Results saved to batch_results.xlsx.")
+        st.markdown("[Download Results Excel File](./batch_results.xlsx)")
+        shutil.rmtree(temp_dir)
