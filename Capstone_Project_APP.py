@@ -244,7 +244,12 @@ if st.button("Process Images"):
                     # Write results to Excel
                     worksheet.write(row, 0, image_name)
                     worksheet.write(row, 1, num_persons)
-                    worksheet.insert_image(row, 2, image_stream)
+
+                    # Save the image temporarily and insert it into Excel
+                    temp_image_path = f"temp_images/{image_name}.png"
+                    with open(temp_image_path, "wb") as f:
+                        f.write(image_stream.read())
+                    worksheet.insert_image(row, 2, temp_image_path)
 
                     # Append results
                     results.append({
