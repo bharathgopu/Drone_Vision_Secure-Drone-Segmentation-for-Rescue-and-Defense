@@ -12,6 +12,7 @@ from pathlib import Path
 import zipfile
 import shutil
 import concurrent.futures
+import pandas as pd
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
