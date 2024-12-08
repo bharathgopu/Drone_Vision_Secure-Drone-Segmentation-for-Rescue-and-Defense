@@ -13,6 +13,7 @@ import pickle
 import pandas as pd
 import cv2
 import shutil
+import xlsxwriter
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -146,6 +147,11 @@ st.sidebar.markdown(
     """
     ### What Does This App Do?
     This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
+    
+    ### Why Is It Useful?
+    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
+    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
+    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
     """
 )
 
@@ -180,48 +186,44 @@ if st.button("Process Images"):
         temp_dir = Path("temp_images")
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
-        temp_dir.mkdir(exist_ok=True)
-    
+        temp_dir.mkdir()
+
         with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
             zip_ref.extractall(temp_dir)
-    
-        image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
+
+        image_files = list(temp_dir.glob("**/*.jpg")) + list(temp_dir.glob("**/*.png")) + list(temp_dir.glob("**/*.jpeg"))
         st.write(f"Uploaded folder contains {len(image_files)} image files.")
-    
-        if len(image_files) > 0:
+
+        if image_files:
             results = []
-            excel_path = "batch_results_with_images.xlsx"
-            with pd.ExcelWriter(excel_path, engine="xlsxwriter") as writer:
-                worksheet = writer.sheets["Image Results"]
-                for idx, image_path in enumerate(image_files):
+            excel_path = "batch_results.xlsx"
+
+            with xlsxwriter.Workbook(excel_path) as workbook:
+                worksheet = workbook.add_worksheet("Results")
+                worksheet.write(0, 0, "Image Name")
+                worksheet.write(0, 1, "Persons Detected")
+                worksheet.write(0, 2, "Segmented Image")
+
+                for row, image_path in enumerate(image_files, start=1):
                     image = Image.open(image_path).convert("RGB")
                     model = models[model_name]
                     prediction = predict_image(image, model)
                     color_pred = map_class_to_color(prediction)
-                    temp_image_path = f"temp_images/{image_path.stem}_segmented_temp.png"
+
+                    temp_image_path = f"temp_{row}.png"
                     cv2.imwrite(temp_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
-                    results.append({"Name": image_path.name, "NumPersons": len(bounding_boxes)})
-                pd.DataFrame(results).to_excel(writer)
-                    # Embed images in the Excel file
-                    for row, result in enumerate(results, start=1):
-                        worksheet.write(row, 0, result["Name"])
-                        worksheet.write(row, 1, result["NumPersons"])
 
-                        # Insert processed image into the Excel sheet
-                        worksheet.insert_image(
-                            row, 2, temp_image_path, {"x_scale": 0.5, "y_scale": 0.5}
-                        )
+                    image_name = image_path.stem
+                    num_persons = len(bounding_boxes.get(image_name, []))
 
-                        # Remove temporary image to save space
-                        os.remove(temp_image_path)
+                    worksheet.write(row, 0, image_name)
+                    worksheet.write(row, 1, num_persons)
+                    worksheet.insert_image(row, 2, temp_image_path, {"x_scale": 0.5, "y_scale": 0.5})
+                    os.remove(temp_image_path)
 
-            # Provide a download button for the Excel sheet
             st.download_button(
-                label="Download Processed Results",
+                "Download Processed Results",
                 data=open(excel_path, "rb").read(),
-                file_name=excel_path,
+                file_name="batch_results.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
-
-        else:
-            st.write("No valid images found in the uploaded folder.")
