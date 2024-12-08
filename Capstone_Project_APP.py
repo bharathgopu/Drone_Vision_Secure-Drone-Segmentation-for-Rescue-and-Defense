@@ -14,7 +14,7 @@ import pandas as pd
 import cv2
 import xlsxwriter
 import shutil
-
+from io import BytesIO
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -232,9 +232,10 @@ if st.button("Process Images"):
                     # Map the prediction to a color image
                     color_pred = map_class_to_color(prediction)
 
-                    # Save the color_pred as a temporary file
-                    temp_image_path = f"temp_{row}.png"
-                    cv2.imwrite(temp_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
+                    # Convert the image to bytes for Excel insertion
+                    image_stream = BytesIO()
+                    Image.fromarray(color_pred).save(image_stream, format="PNG")
+                    image_stream.seek(0)
 
                     # Generate file name and the number of persons (from bounding boxes)
                     image_name = image_path.stem
@@ -243,17 +244,13 @@ if st.button("Process Images"):
                     # Write results to Excel
                     worksheet.write(row, 0, image_name)
                     worksheet.write(row, 1, num_persons)
-                    worksheet.insert_image(row, 2, temp_image_path)
+                    worksheet.insert_image(row, 2, image_stream)
 
                     # Append results
                     results.append({
                         "Image Name": image_name,
                         "Persons Detected": num_persons
                     })
-
-                    # Clean up temporary images after adding them to Excel
-                    if os.path.exists(temp_image_path):
-                        os.remove(temp_image_path)
 
                     row += 1
 
