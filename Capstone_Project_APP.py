@@ -146,6 +146,51 @@ def load_bounding_boxes(file_path):
 
 bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
 
+# Apply custom CSS for background image and sidebar
+def add_custom_css(background_image_path):
+    with open(background_image_path, "rb") as image_file:
+        base64_image = base64.b64encode(image_file.read()).decode()
+
+    st.markdown(
+        f"""
+        <style>
+        /* Background Styling */
+        body {{
+            background-image: url("data:image/png;base64,{base64_image}");
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+        .stApp {{
+            background-color: rgba(0, 0, 0, 0.5); /* Add transparency */
+            border-radius: 10px;
+        }}
+        /* Sidebar Styling */
+        section[data-testid="stSidebar"] {{
+            background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
+            border-radius: 10px;
+            padding: 15px;
+        }}
+        section[data-testid="stSidebar"] h1, 
+        section[data-testid="stSidebar"] h2, 
+        section[data-testid="stSidebar"] h3 {{
+            color: black !important; /* Sidebar headings in black */
+            font-weight: bold;
+        }}
+        section[data-testid="stSidebar"] p, 
+        section[data-testid="stSidebar"] ul {{
+            color: #333333 !important; /* Sidebar text in dark gray */
+        }}
+        /* Main Content Headings */
+        h1, h2, h3, label {{
+            color: white !important;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
@@ -168,6 +213,9 @@ st.sidebar.markdown(
     3. **View Results:** See the segmented output with color-coded classes.
     """
 )
+
+# Apply custom CSS for background image and sidebar
+add_custom_css("dronepic.png")
 
 # Model paths and mapping
 model_paths = {
@@ -192,6 +240,43 @@ models = load_models(model_paths, model_name_mapping)
 st.subheader("Select a Model")
 model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 
+# Upload image for single processing
+st.subheader("Upload an Image")
+uploaded_image = st.file_uploader("", type=["jpg", "png"])
+
+# Perform segmentation if an image is uploaded and a model is selected
+if uploaded_image and model_name != "Select a Model":
+    image = Image.open(uploaded_image).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+
+    model = models[model_name]
+    prediction = predict_image(image, model)
+
+    # Map prediction to color image
+    color_pred = map_class_to_color(prediction)
+
+    st.image(color_pred, caption="Segmented Image", use_column_width=True)
+    image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
+    if image_id in bounding_boxes:
+        num_persons = len(bounding_boxes[image_id])
+        st.markdown(
+            f"""
+            <p style="color: white; font-weight: bold; font-size: 16px;">
+                Number of Persons Detected: {num_persons}
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+        f"""
+        <p style="color: white; font-weight: bold; font-size: 16px;">
+            No bounding boxes available for this image.
+        </p>
+        """,
+        unsafe_allow_html=True,
+        ) 
+        
 # Upload folder for batch processing
 st.subheader("Batch Processing")
 uploaded_folder = st.file_uploader("Upload a zip folder of images", type="zip")
