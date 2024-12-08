@@ -186,62 +186,62 @@ model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 st.subheader("Batch Processing")
 uploaded_folder = st.file_uploader("Upload a zip folder of images", type="zip")
 
-# Process images
-if uploaded_folder:
-    temp_dir = Path("temp_images")
-    temp_dir.mkdir(exist_ok=True)
-
-    # Open the zip file and extract its contents
-    with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
-        zip_ref.extractall(temp_dir)
-
-    # List all image files in the extracted folder (including subdirectories)
-    image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
-    st.write(f"Uploaded folder contains {len(image_files)} image files.")
-
-    # Process each image in the folder
-    if len(image_files) > 0:
-        # Create a list to store the results for the Excel sheet
-        results = []
-
-        for image_path in image_files:
-            image = Image.open(image_path).convert("RGB")
-            model = models[model_name]
-            prediction = predict_image(image, model)
-
-            # Map the prediction to a color image
-            color_pred = map_class_to_color(prediction)
-
-            # Save the color_pred (segmented image)
-            output_image_path = f"processed_images/{image_path.stem}_segmented.png"
-            os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
-            cv2.imwrite(output_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
-
-            # Generate file name and the number of persons (from bounding boxes)
-            image_name = image_path.stem
-            num_persons = len(bounding_boxes.get(image_name, []))  # Get number of persons from bounding boxes
-
-            # Store results (image name, number of persons, and path to segmented image)
-            results.append({
-                "Image Name": image_name,
-                "Persons Detected": num_persons,
-                "Segmented Image Path": output_image_path
-            })
-
-        # Save results to an Excel file
-        results_df = pd.DataFrame(results)
-
-        excel_path = "batch_results.xlsx"
-        with pd.ExcelWriter(excel_path) as writer:
-            results_df.to_excel(writer, sheet_name="Image Results", index=False)
-        
-        # Provide a download button for the Excel sheet
-        st.download_button(
-            label="Download Processed Results",
-            data=open(excel_path, "rb").read(),
-            file_name=excel_path,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    else:
-        st.write("No valid images found in the uploaded folder.")
+if st.button("Process Images"):
+    if uploaded_folder:
+        temp_dir = Path("temp_images")
+        temp_dir.mkdir(exist_ok=True)
+    
+        # Open the zip file and extract its contents
+        with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+    
+        # List all image files in the extracted folder (including subdirectories)
+        image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
+        st.write(f"Uploaded folder contains {len(image_files)} image files.")
+    
+        # Process each image in the folder
+        if len(image_files) > 0:
+            # Create a list to store the results for the Excel sheet
+            results = []
+    
+            for image_path in image_files:
+                image = Image.open(image_path).convert("RGB")
+                model = models[model_name]
+                prediction = predict_image(image, model)
+    
+                # Map the prediction to a color image
+                color_pred = map_class_to_color(prediction)
+    
+                # Save the color_pred (segmented image)
+                output_image_path = f"processed_images/{image_path.stem}_segmented.png"
+                os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
+                cv2.imwrite(output_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
+    
+                # Generate file name and the number of persons (from bounding boxes)
+                image_name = image_path.stem
+                num_persons = len(bounding_boxes.get(image_name, []))  # Get number of persons from bounding boxes
+    
+                # Store results (image name, number of persons, and path to segmented image)
+                results.append({
+                    "Image Name": image_name,
+                    "Persons Detected": num_persons,
+                    "Segmented Image Path": output_image_path
+                })
+    
+            # Save results to an Excel file
+            results_df = pd.DataFrame(results)
+    
+            excel_path = "batch_results.xlsx"
+            with pd.ExcelWriter(excel_path) as writer:
+                results_df.to_excel(writer, sheet_name="Image Results", index=False)
+            
+            # Provide a download button for the Excel sheet
+            st.download_button(
+                label="Download Processed Results",
+                data=open(excel_path, "rb").read(),
+                file_name=excel_path,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    
+        else:
+            st.write("No valid images found in the uploaded folder.")
