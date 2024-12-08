@@ -200,13 +200,20 @@ if uploaded_folder:
     extracted_files = list(temp_dir.glob('*'))  # This will list all extracted files
     st.write(f"Files extracted: {extracted_files}")
 
-    # Count the number of .jpg files
-    jpg_files = list(temp_dir.glob('*.jpg'))
-    st.write(f"Uploaded folder contains {len(jpg_files)} .jpg images.")
+    # Search recursively for image files inside subdirectories
+    jpg_files = list(temp_dir.glob('**/*.jpg'))  # Matches .jpg files in any subfolder
+    png_files = list(temp_dir.glob('**/*.png'))  # Matches .png files in any subfolder
+    jpeg_files = list(temp_dir.glob('**/*.jpeg'))  # Matches .jpeg files in any subfolder
 
-    # If you want to check for other types of image extensions as well, you can try this:
-    other_images = list(temp_dir.glob('*.[pj]*[np]*[g]*'))  # Matches .jpg, .png, .jpeg
-    st.write(f"Uploaded folder contains {len(other_images)} image files (including .jpg, .png, .jpeg).")
+    # Combine all image files found
+    all_images = jpg_files + png_files + jpeg_files
+
+    st.write(f"Uploaded folder contains {len(all_images)} image files (including .jpg, .png, .jpeg).")
+
+    # Optionally, display the path of the first image file found (for debugging)
+    if len(all_images) > 0:
+        st.write(f"First image path: {all_images[0]}")
+
 
 
     if st.button("Process Images"):
