@@ -11,7 +11,7 @@ from pathlib import Path
 import base64
 import pickle
 import pandas as pd
-
+import cv2
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -127,6 +127,15 @@ def map_class_to_color(prediction):
 
     return color_image
 
+# Load bounding boxes (for person detection)
+@st.cache_resource
+def load_bounding_boxes(file_path):
+    with open(file_path, "rb") as file:
+        data = pickle.load(file)
+    return data
+
+bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
+
 # Streamlit Interface
 st.title("Drone Segmentation for Rescue and Defence")
 
@@ -202,24 +211,29 @@ if uploaded_folder:
             # Map the prediction to a color image
             color_pred = map_class_to_color(prediction)
 
-            # Generate file name and the number of persons (for demonstration)
-            image_name = image_path.stem
-            num_persons = 5  # Example, you can modify based on actual logic
+            # Save the color_pred (segmented image)
+            output_image_path = f"processed_images/{image_path.stem}_segmented.png"
+            os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
+            cv2.imwrite(output_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
 
-            # Append results for the Excel file
+            # Generate file name and the number of persons (from bounding boxes)
+            image_name = image_path.stem
+            num_persons = len(bounding_boxes.get(image_name, []))  # Get number of persons from bounding boxes
+
+            # Store results (image name, number of persons, and path to segmented image)
             results.append({
                 "Image Name": image_name,
                 "Persons Detected": num_persons,
+                "Segmented Image Path": output_image_path
             })
 
-            # Display the results
-            #st.image(color_pred, caption=f"Segmented Image - {image_name}", use_column_width=True)
-
-        # Save the results to Excel
+        # Save results to an Excel file
         results_df = pd.DataFrame(results)
-        excel_path = "batch_results.xlsx"
-        results_df.to_excel(excel_path, index=False)
 
+        excel_path = "batch_results.xlsx"
+        with pd.ExcelWriter(excel_path) as writer:
+            results_df.to_excel(writer, sheet_name="Image Results", index=False)
+        
         # Provide a download button for the Excel sheet
         st.download_button(
             label="Download Processed Results",
@@ -227,3 +241,6 @@ if uploaded_folder:
             file_name=excel_path,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+    else:
+        st.write("No valid images found in the uploaded folder.")
