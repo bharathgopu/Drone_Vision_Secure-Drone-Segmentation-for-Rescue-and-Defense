@@ -3,5 +3,5 @@ torchvision
 torchaudio
 streamlit
 segmentation-models-pytorch
-cv2
+
 
