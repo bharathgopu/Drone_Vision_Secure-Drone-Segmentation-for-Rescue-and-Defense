@@ -266,14 +266,12 @@ if uploaded_image and model_name != "Select a Model":
         """,
         unsafe_allow_html=True,
         ) 
-# Keep all your existing code unchanged above
-
 # Upload folder for batch processing
 st.subheader("Batch Processing")
 uploaded_folder = st.file_uploader("Upload a folder of images (as a zip file)", type=["zip"])
 
 if uploaded_folder:
-    temp_dir = Path("temp_images")
+    temp_dir = Path("temp_images")  # This will work after importing Path
     temp_dir.mkdir(exist_ok=True)
 
     with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
@@ -299,5 +297,14 @@ if uploaded_folder:
         df.to_excel(excel_path, index=False)
 
         st.success("Batch processing completed!")
-        st.markdown(f"[Download Results Excel File](./{excel_path})", unsafe_allow_html=True)
+
+        # Display the download button to download the Excel file
+        with open(excel_path, "rb") as file:
+            st.download_button(
+                label="Download Results Excel File",
+                data=file,
+                file_name="batch_results.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
         shutil.rmtree(temp_dir)
