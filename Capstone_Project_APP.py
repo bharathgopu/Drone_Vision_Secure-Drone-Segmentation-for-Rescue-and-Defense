@@ -12,8 +12,9 @@ import base64
 import pickle
 import pandas as pd
 import cv2
-import shutil
 import xlsxwriter
+import shutil
+
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -39,6 +40,7 @@ class SimpleFCN(nn.Module):
         x = self.classifier(x)
         return x
 
+
 # Initialize models based on their names
 def initialize_model(model_name):
     if model_name == "SimpleFCN":
@@ -51,6 +53,7 @@ def initialize_model(model_name):
         return smp.Unet(encoder_name="mobilenet_v2", encoder_weights="imagenet", classes=24, activation=None)
     else:
         raise ValueError(f"Unknown model: {model_name}")
+
 
 # Load models from paths
 @st.cache_resource
@@ -74,6 +77,7 @@ def load_models(model_paths, model_name_mapping):
 
     return models
 
+
 # Define image preprocessing
 def transform_image(image):
     transform = transforms.Compose([
@@ -83,6 +87,7 @@ def transform_image(image):
     ])
     return transform(image).unsqueeze(0)
 
+
 # Predict function
 def predict_image(image, model):
     image = transform_image(image)
@@ -90,6 +95,7 @@ def predict_image(image, model):
         output = model(image)
     output = torch.argmax(output.squeeze(), dim=0).cpu().numpy()
     return output
+
 
 # Map predictions to colors for visualization
 def map_class_to_color(prediction):
@@ -129,12 +135,14 @@ def map_class_to_color(prediction):
 
     return color_image
 
+
 # Load bounding boxes (for person detection)
 @st.cache_resource
 def load_bounding_boxes(file_path):
     with open(file_path, "rb") as file:
         data = pickle.load(file)
     return data
+
 
 bounding_boxes = load_bounding_boxes("imgIdToBBoxArray.p")
 
@@ -152,6 +160,11 @@ st.sidebar.markdown(
     - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
     - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
     - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
+    
+    ### How to Use
+    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
+    2. **Upload an Image:** Drag and drop or upload a drone image.
+    3. **View Results:** See the segmented output with color-coded classes.
     """
 )
 
@@ -163,6 +176,7 @@ model_paths = {
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
 
+# Map display names to internal names
 model_name_mapping = {
     "U-Net (Accuracy: 0.81)": "U-Net",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
@@ -183,18 +197,22 @@ uploaded_folder = st.file_uploader("Upload a zip folder of images", type="zip")
 
 if st.button("Process Images"):
     if uploaded_folder:
+        # Clear the previous images in temp_images directory
         temp_dir = Path("temp_images")
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
-        temp_dir.mkdir()
+        temp_dir.mkdir(exist_ok=True)
 
+        # Open the zip file and extract its contents
         with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
             zip_ref.extractall(temp_dir)
 
-        image_files = list(temp_dir.glob("**/*.jpg")) + list(temp_dir.glob("**/*.png")) + list(temp_dir.glob("**/*.jpeg"))
+        # List all image files in the extracted folder (including subdirectories)
+        image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
         st.write(f"Uploaded folder contains {len(image_files)} image files.")
 
-        if image_files:
+        # Process each image in the folder
+        if len(image_files) > 0:
             results = []
             excel_path = "batch_results.xlsx"
 
@@ -202,28 +220,49 @@ if st.button("Process Images"):
                 worksheet = workbook.add_worksheet("Results")
                 worksheet.write(0, 0, "Image Name")
                 worksheet.write(0, 1, "Persons Detected")
-                worksheet.write(0, 2, "Segmented Image")
+                worksheet.write(0, 2, "Processed Image")
 
-                for row, image_path in enumerate(image_files, start=1):
+                row = 1
+                for image_path in image_files:
                     image = Image.open(image_path).convert("RGB")
                     model = models[model_name]
                     prediction = predict_image(image, model)
+
+                    # Map the prediction to a color image
                     color_pred = map_class_to_color(prediction)
 
+                    # Save the color_pred as a temporary file
                     temp_image_path = f"temp_{row}.png"
                     cv2.imwrite(temp_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
 
+                    # Generate file name and the number of persons (from bounding boxes)
                     image_name = image_path.stem
-                    num_persons = len(bounding_boxes.get(image_name, []))
+                    num_persons = len(bounding_boxes.get(image_name, []))  # Get number of persons from bounding boxes
 
+                    # Write results to Excel
                     worksheet.write(row, 0, image_name)
                     worksheet.write(row, 1, num_persons)
-                    worksheet.insert_image(row, 2, temp_image_path, {"x_scale": 0.5, "y_scale": 0.5})
-                    os.remove(temp_image_path)
+                    worksheet.insert_image(row, 2, temp_image_path)
 
+                    # Append results
+                    results.append({
+                        "Image Name": image_name,
+                        "Persons Detected": num_persons
+                    })
+
+                    # Clean up temporary images after adding them to Excel
+                    if os.path.exists(temp_image_path):
+                        os.remove(temp_image_path)
+
+                    row += 1
+
+            # Provide a download button for the Excel sheet
             st.download_button(
-                "Download Processed Results",
+                label="Download Processed Results",
                 data=open(excel_path, "rb").read(),
-                file_name="batch_results.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                file_name=excel_path,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+        else:
+            st.write("No valid images found in the uploaded folder.")
