@@ -162,6 +162,23 @@ st.sidebar.markdown(
     This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
     """
 )
+model_paths = {
+    "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
+    "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
+    "FPN (Accuracy: 0.65)": "FPN_best_model.pth",
+    "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
+}
+
+# Map display names to internal names
+model_name_mapping = {
+    "U-Net (Accuracy: 0.81)": "U-Net",
+    "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
+    "FPN (Accuracy: 0.65)": "FPN",
+    "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus",
+}
+
+# Load models
+models = load_models(model_paths, model_name_mapping)
 
 # Model selection
 st.subheader("Select a Model")
