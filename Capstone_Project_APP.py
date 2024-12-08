@@ -75,7 +75,7 @@ def load_models(model_paths, model_name_mapping):
 
 # Define image preprocessing
 def transform_image(image):
-    transform = transforms.Compose([ 
+    transform = transforms.Compose([
         transforms.Resize((512, 512)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -146,16 +146,6 @@ st.sidebar.markdown(
     """
     ### What Does This App Do?
     This application performs **semantic segmentation** on drone images using various state-of-the-art deep learning models.
-    
-    ### Why Is It Useful?
-    - **Rescue Operations:** Quickly identify and segment areas like water, vegetation, and structures for effective rescue planning.
-    - **Defence Applications:** Analyze aerial views for critical decision-making in defence operations.
-    - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
-    
-    ### How to Use
-    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
-    2. **Upload an Image:** Drag and drop or upload a drone image.
-    3. **View Results:** See the segmented output with color-coded classes.
     """
 )
 
@@ -167,7 +157,6 @@ model_paths = {
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
 }
 
-# Map display names to internal names
 model_name_mapping = {
     "U-Net (Accuracy: 0.81)": "U-Net",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
@@ -188,72 +177,51 @@ uploaded_folder = st.file_uploader("Upload a zip folder of images", type="zip")
 
 if st.button("Process Images"):
     if uploaded_folder:
-        # Clear the previous images in temp_images directory
         temp_dir = Path("temp_images")
         if temp_dir.exists():
-            for file in temp_dir.iterdir():
-                # If it's a file, remove it
-                if file.is_file():
-                    file.unlink()
-                # If it's a directory, remove the directory and its contents
-                elif file.is_dir():
-                    shutil.rmtree(file)  # Removes directory and all its contents
-        else:
-            temp_dir.mkdir(exist_ok=True)
+            shutil.rmtree(temp_dir)
+        temp_dir.mkdir(exist_ok=True)
     
-        # Open the zip file and extract its contents
         with zipfile.ZipFile(uploaded_folder, "r") as zip_ref:
             zip_ref.extractall(temp_dir)
     
-        # List all image files in the extracted folder (including subdirectories)
         image_files = list(temp_dir.glob('**/*.jpg')) + list(temp_dir.glob('**/*.png')) + list(temp_dir.glob('**/*.jpeg'))
         st.write(f"Uploaded folder contains {len(image_files)} image files.")
-
-
     
-        # Process each image in the folder
         if len(image_files) > 0:
-            # Create a list to store the results for the Excel sheet
             results = []
-    
-            for image_path in image_files:
-                image = Image.open(image_path).convert("RGB")
-                model = models[model_name]
-                prediction = predict_image(image, model)
-    
-                # Map the prediction to a color image
-                color_pred = map_class_to_color(prediction)
-    
-                # Save the color_pred (segmented image)
-                output_image_path = f"processed_images/{image_path.stem}_segmented.png"
-                os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
-                cv2.imwrite(output_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
-    
-                # Generate file name and the number of persons (from bounding boxes)
-                image_name = image_path.stem
-                num_persons = len(bounding_boxes.get(image_name, []))  # Get number of persons from bounding boxes
-    
-                # Store results (image name, number of persons, and path to segmented image)
-                results.append({
-                    "Image Name": image_name,
-                    "Persons Detected": num_persons,
-                    "Segmented Image Path": output_image_path
-                })
-    
-            # Save results to an Excel file
-            results_df = pd.DataFrame(results)
-    
-            excel_path = "batch_results.xlsx"
-            with pd.ExcelWriter(excel_path) as writer:
-                results_df.to_excel(writer, sheet_name="Image Results", index=False)
-            
+            excel_path = "batch_results_with_images.xlsx"
+            with pd.ExcelWriter(excel_path, engine="xlsxwriter") as writer:
+                worksheet = writer.sheets["Image Results"]
+                for idx, image_path in enumerate(image_files):
+                    image = Image.open(image_path).convert("RGB")
+                    model = models[model_name]
+                    prediction = predict_image(image, model)
+                    color_pred = map_class_to_color(prediction)
+                    temp_image_path = f"temp_images/{image_path.stem}_segmented_temp.png"
+                    cv2.imwrite(temp_image_path, cv2.cvtColor(color_pred, cv2.COLOR_RGB2BGR))
+                    results.append({"Name": image_path.name, "NumPersons": len(bounding_boxes)})
+                pd.DataFrame(results).to_excel(writer)
+                    # Embed images in the Excel file
+                    for row, result in enumerate(results, start=1):
+                        worksheet.write(row, 0, result["Name"])
+                        worksheet.write(row, 1, result["NumPersons"])
+
+                        # Insert processed image into the Excel sheet
+                        worksheet.insert_image(
+                            row, 2, temp_image_path, {"x_scale": 0.5, "y_scale": 0.5}
+                        )
+
+                        # Remove temporary image to save space
+                        os.remove(temp_image_path)
+
             # Provide a download button for the Excel sheet
             st.download_button(
                 label="Download Processed Results",
                 data=open(excel_path, "rb").read(),
                 file_name=excel_path,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
-    
+
         else:
             st.write("No valid images found in the uploaded folder.")
