@@ -11,7 +11,6 @@ import pickle
 from pathlib import Path
 import pandas as pd
 from multiprocessing import Pool, cpu_count
-from streamlit_folder_picker import st_folder_picker
 
 # Define your model architectures
 class SimpleFCN(nn.Module):
@@ -126,7 +125,7 @@ def map_class_to_color(prediction):
         color_image[mask] = color
 
     return color_image
-    
+
 @st.cache_resource
 def load_bounding_boxes(file_path):
     with open(file_path, "rb") as file:
@@ -178,49 +177,23 @@ models = load_models(model_paths, model_name_mapping)
 st.subheader("Select a Model")
 model_name = st.selectbox("", ["Select a Model"] + list(models.keys()))
 
-# Upload image
-st.subheader("Upload an Image")
-uploaded_image = st.file_uploader("", type=["jpg", "png"])
+# Upload single image or multiple images
+st.subheader("Upload Images")
+uploaded_files = st.file_uploader("Upload Images", type=["jpg", "png"], accept_multiple_files=True)
 
-if uploaded_image and model_name != "Select a Model":
-    image = Image.open(uploaded_image).convert("RGB")
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+if uploaded_files and model_name != "Select a Model":
     model = models[model_name]
-    prediction = predict_image(image, model)
-    color_pred = map_class_to_color(prediction)
-    st.image(color_pred, caption="Segmented Image", use_column_width=True)
+    results = []
 
-    image_id = os.path.splitext(os.path.basename(uploaded_image.name))[0]
-    num_persons = len(bounding_boxes.get(image_id, []))
-    st.write(f"Number of Persons Detected: {num_persons}")
+    for uploaded_file in uploaded_files:
+        image = Image.open(uploaded_file).convert("RGB")
+        image_id = os.path.splitext(uploaded_file.name)[0]
+        prediction = predict_image(image, model)
+        num_persons = len(bounding_boxes.get(image_id, []))
+        results.append({"File Name": uploaded_file.name, "Number of Persons Detected": num_persons})
 
-# Batch processing functionality
-st.subheader("Batch Process Images in a Folder")
-selected_folder = st_folder_picker(label="Select a folder containing images")
-if selected_folder and st.button("Process Folder"):
-    folder = Path(selected_folder)
-    image_files = list(folder.glob("*.jpg")) + list(folder.glob("*.png"))
-
-    if image_files:
-        st.write(f"Processing {len(image_files)} images...")
-
-        def process_image(file_path):
-            try:
-                image = Image.open(file_path).convert("RGB")
-                image_id = os.path.splitext(file_path.name)[0]
-                prediction = predict_image(image, model)
-                num_persons = len(bounding_boxes.get(image_id, []))
-                return {"File Name": file_path.name, "Number of Persons Detected": num_persons}
-            except Exception as e:
-                return {"File Name": file_path.name, "Number of Persons Detected": f"Error: {e}"}
-
-        with Pool(cpu_count()) as pool:
-            results = pool.map(process_image, image_files)
-
-        results_df = pd.DataFrame(results)
-        output_path = folder / "batch_results.xlsx"
-        results_df.to_excel(output_path, index=False)
-        st.write(f"Batch processing complete! Results saved to {output_path}")
-        st.dataframe(results_df)
-    else:
-        st.write("No images found in the selected folder.")
+    results_df = pd.DataFrame(results)
+    output_path = Path("batch_results.xlsx")
+    results_df.to_excel(output_path, index=False)
+    st.write(f"Batch processing complete! Results saved to {output_path}")
+    st.dataframe(results_df)
