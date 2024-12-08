@@ -213,7 +213,7 @@ if uploaded_folder:
             })
 
             # Display the results
-            st.image(color_pred, caption=f"Segmented Image - {image_name}", use_column_width=True)
+            #st.image(color_pred, caption=f"Segmented Image - {image_name}", use_column_width=True)
 
         # Save the results to Excel
         results_df = pd.DataFrame(results)
