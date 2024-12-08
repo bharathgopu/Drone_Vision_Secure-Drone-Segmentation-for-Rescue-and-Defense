@@ -3,4 +3,3 @@ torchvision
 torchaudio
 streamlit
 segmentation-models-pytorch
-streamlit-folder-picker
