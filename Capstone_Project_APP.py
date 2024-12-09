@@ -168,7 +168,7 @@ def add_custom_css(background_image_path):
         }}
         /* Sidebar Styling */
         section[data-testid="stSidebar"] {{
-            background: rgba(46, 59, 78); /* Light background for the sidebar */
+            background: rgba(33, 33, 33); /* Light background for the sidebar */
             border-radius: 10px;
             padding: 15px;
         }}
@@ -184,7 +184,7 @@ def add_custom_css(background_image_path):
         }}
         /* Main Content Headings */
         h1, h2, h3, label {{
-            color: white !important;
+           
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Add shadow for better contrast */
         }}
         </style>
