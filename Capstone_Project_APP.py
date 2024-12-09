@@ -208,9 +208,9 @@ st.sidebar.markdown(
     - **Urban Planning:** Use segmentation results for accurate mapping and planning in urban areas.
     
     ### How to Use
-    1. **Select a Model:** Choose a segmentation model from the dropdown menu.
-    2. **Upload an Image:** Drag and drop or upload a drone image.
-    3. **View Results:** See the segmented output with color-coded classes.
+    **Select a Model:** Choose a segmentation model from the dropdown menu.
+     **Upload an Image:** Drag and drop or upload a drone image.
+     **View Results:** See the segmented output with color-coded classes.
     """
 )
 
