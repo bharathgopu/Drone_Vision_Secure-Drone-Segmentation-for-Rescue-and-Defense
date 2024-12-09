@@ -168,7 +168,7 @@ def add_custom_css(background_image_path):
         }}
         /* Sidebar Styling */
         section[data-testid="stSidebar"] {{
-            background: rgba(255, 255, 255, 0.8); /* Light background for the sidebar */
+            background: rgba(46, 59, 78); /* Light background for the sidebar */
             border-radius: 10px;
             padding: 15px;
         }}
