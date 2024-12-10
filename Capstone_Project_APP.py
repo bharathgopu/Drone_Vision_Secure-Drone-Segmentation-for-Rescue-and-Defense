@@ -221,7 +221,7 @@ add_custom_css("dronepic.png")
 
 # Model paths and mapping
 model_paths = {
-    "U-Net (Accuracy: 0.81)": "Unet-Mobilenet.pt",
+    "U-Net (Accuracy: 0.83)": "Unet-Mobilenet.pt",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN_best_model.pth",
     "FPN (Accuracy: 0.65)": "FPN_best_model.pth",
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus_best_model.pth",
@@ -229,7 +229,7 @@ model_paths = {
 
 # Map display names to internal names
 model_name_mapping = {
-    "U-Net (Accuracy: 0.81)": "U-Net",
+    "U-Net (Accuracy: 0.83)": "U-Net",
     "SimpleFCN (Accuracy: 0.48)": "SimpleFCN",
     "FPN (Accuracy: 0.65)": "FPN",
     "DeepLabV3Plus (Accuracy: 0.69)": "DeepLabV3Plus",
