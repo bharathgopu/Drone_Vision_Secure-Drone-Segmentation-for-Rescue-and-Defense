@@ -11,6 +11,9 @@
 - Saikiran Mandula - LN73970
 - Bharath Kumar Gopu - EY53339
 
+**Main Python Script:**
+capstone_Project_Final.ipynb
+
 ## 📊 Research Question
 How can drone-captured aerial images be used to segment and detect critical objects (such as people, vehicles, and infrastructure) to assist in faster and more efficient rescue and defense operations?
 
