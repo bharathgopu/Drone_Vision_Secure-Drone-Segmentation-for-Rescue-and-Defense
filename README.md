@@ -118,7 +118,7 @@ Try our web application: **[here](https://dronevisionsecure-drone-segmentation-f
 
 ---
 
-## 📚 Article Summaries
+## 📚 Article Summaries/References
 
 ### DroneSegNet: Robust Aerial Semantic Segmentation for UAV-Based IoT Applications
 - **Citation**: S. Chakravarthy, et al. (2022) in IEEE Transactions on Vehicular Technology, vol. 71, no. 4, pp. 4277-4286. [DOI](https://doi.org/10.1109/TVT.2022.3144358)
@@ -132,6 +132,7 @@ Try our web application: **[here](https://dronevisionsecure-drone-segmentation-f
 - **Citation**: Mishra et al. (2020) in Computer Communications, vol. 156. [DOI](https://doi.org/10.1016/j.comcom.2020.03.012)
 - **Summary**: This paper highlights the role of drones in **search and rescue** during natural disasters, discussing how drones can provide real-time aerial imagery and data for decision-making. Integrating insights from this paper will help us improve the safety and effectiveness of our drone operations, especially in emergencies.
 
+### Semantic Drone Dataset- http://dronedataset.icg.tugraz.at/
 
 ---
 
